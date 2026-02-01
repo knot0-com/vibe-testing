@@ -50,7 +50,8 @@ After completing all steps, produce a structured report with:
 
 5. **Cross-Document Consistency Check**
    Flag any cases where two documents make conflicting assumptions about
-   the same concept (e.g., one says SQLite, another assumes PostgreSQL).
+   the same concept (e.g., the payment spec assumes a 10-minute retry
+   window, but the inventory spec releases holds after 5 minutes).
 
 Be thorough. Do not fill in gaps with assumptions. If the spec does not
 explicitly define something, classify it as GAP even if the answer seems

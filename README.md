@@ -28,38 +28,31 @@ Works with Claude Code, OpenAI Codex, Gemini CLI, Cursor, GitHub Copilot, OpenCo
 ### Claude Code
 
 ```bash
-# Copy to your skills directory
-cp -r vibe-testing ~/.claude/skills/
-
-# Or clone directly
-git clone https://github.com/jian-mo/vibe-testing.git ~/.claude/skills/vibe-testing
+git clone https://github.com/knot0-com/vibe-testing.git ~/.claude/skills/vibe-testing
 ```
 
 ### OpenAI Codex
 
 ```bash
-cp -r vibe-testing ~/.codex/skills/
+git clone https://github.com/knot0-com/vibe-testing.git ~/.codex/skills/vibe-testing
 ```
 
 ### Gemini CLI
 
 ```bash
-cp -r vibe-testing ~/.gemini/skills/
+git clone https://github.com/knot0-com/vibe-testing.git ~/.gemini/skills/vibe-testing
 ```
 
 ### Universal (works with most agents)
 
 ```bash
-cp -r vibe-testing ~/.agent/skills/
+git clone https://github.com/knot0-com/vibe-testing.git ~/.agent/skills/vibe-testing
 ```
 
 ### Project-level (shared with team)
 
 ```bash
-# Add to your project repo
-cp -r vibe-testing .claude/skills/
-# or
-cp -r vibe-testing .agent/skills/
+git clone https://github.com/knot0-com/vibe-testing.git .claude/skills/vibe-testing
 ```
 
 ## Usage
@@ -69,7 +62,7 @@ Once installed, the skill activates when you ask your coding agent to validate s
 ```
 > /vibe-testing
 
-> "Test my specs against a realistic deployment scenario"
+> "Test my specs against a realistic scenario"
 
 > "Find gaps in the architecture docs before we start building"
 
@@ -84,7 +77,7 @@ vibe-testing/
 ├── references/
 │   └── simulator-prompt.md           # Copy-paste prompt templates
 └── examples/
-    └── example-vibe-test.md          # Complete example test case
+    └── example-vibe-test.md          # Complete example: e-commerce checkout flow
 ```
 
 ## The Gap Report
@@ -97,13 +90,14 @@ Vibe tests produce a structured gap report:
 | **DEGRADED** | Workaround exists but it's fragile. |
 | **COSMETIC** | Missing convenience. Not a correctness issue. |
 
-## Results
+## Example
 
-Applied to a 20+ document system specification with 4 vibe test cases covering different deployment contexts:
+The included example tests an e-commerce checkout against specs for auth, payments, inventory, orders, notifications, and shipping. A single scenario — "first-time buyer, payment declined, retries with new card" — found:
 
-- **6 blocking gaps** found (no web UI spec, no persistent automation concept, no PostgreSQL schema for distributed mode, no HA story)
-- **8 degraded gaps** found (no default security policy, no filesystem-watch trigger, no sleep/delay primitive)
-- **5 cosmetic gaps** found (no one-click deploy, no monitoring dashboard)
+- **Payment retry timing exceeds inventory hold** — stock can be sold to another customer while the buyer is entering a new card number
+- **Auth token expires mid-checkout** — 15-minute JWT TTL vs. potentially longer checkout flow on slow connections
+- **Payment succeeds but order confirmation fails** — customer is charged with no order record (no saga/compensation defined)
+- **Guest checkout order access undefined** — no spec for how a guest views their order status
 
 Each would have been a rewrite-level discovery weeks into implementation.
 

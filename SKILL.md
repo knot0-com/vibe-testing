@@ -1,8 +1,7 @@
 ---
 name: vibe-testing
 description: >
-  Use when validating spec documents, design docs, or architecture docs for
-  completeness and coherence. Use when the user asks to "test my specs",
+  This skill should be used when the user asks to "test my specs",
   "validate my design docs", "find gaps in my architecture", "stress-test
   the spec", "vibe test", "pressure test the docs", or mentions spec
   validation before implementation begins.
@@ -53,21 +52,20 @@ Every test case requires 7 sections:
 A concrete person with a name, role, and technical skill level. Not abstract — real enough to predict behavior.
 
 ```markdown
-**Maya** — Owner of a 12-person e-commerce business.
-Not a developer. Comfortable with Zapier and Shopify admin.
-Has never written code or used a terminal.
+**Sarah** — First-time customer. Shopping on mobile during a commute.
+Expects checkout to take under 60 seconds. Low patience for errors.
 ```
 
-Named personas force specificity. "A non-technical user" invites hand-waving. "Maya, who has never used a terminal" forces the spec to answer "how does Maya do this?"
+Named personas force specificity. "A customer" invites hand-waving. "Sarah, shopping on mobile during a commute" forces the spec to answer "what happens on a slow 3G connection?"
 
 ### 2. Environment (WHERE)
 
 Deployment mode, hardware, network, access method. Different environments exercise different spec paths.
 
 ```markdown
-- **Deployment:** Cloud-hosted SaaS instance
-- **Runners:** Platform runner only (gVisor sandbox)
-- **Access:** Web browser only (no CLI, no SSH)
+- **Client:** Mobile browser (iOS Safari, 3G connection)
+- **Backend:** Microservices (auth, payments, inventory, orders, notifications)
+- **Scale:** Black Friday traffic — 50x normal load
 ```
 
 ### 3. Goal (WHAT)
@@ -75,8 +73,8 @@ Deployment mode, hardware, network, access method. Different environments exerci
 A single sentence in the persona's own words. Use a blockquote.
 
 ```markdown
-> "When a new order comes in on Shopify, automatically create an invoice
-> in QuickBooks and send a confirmation email."
+> "I want to buy these 3 items, pay with my credit card, and get a
+> confirmation email within a minute."
 ```
 
 ### 4. Scenario Steps (HOW)
@@ -88,17 +86,20 @@ A single sentence in the persona's own words. Use a blockquote.
 - **Gap detection questions** — 2-3 questions the simulator must answer
 
 ```markdown
-#### Step 3: Agent installs connectors
+#### Step 3: Payment fails, customer retries
 
-The agent searches the registry and installs Shopify, QuickBooks connectors.
+Sarah's first payment attempt is declined. She re-enters a different card.
 
 **Primitives:**
-- `registry.md`: search, install
-- `connectors.md`: ConnectorDefinition, AuthDefinition
+- `payments-spec.md`: retry policy, idempotency keys
+- `inventory-spec.md`: stock hold duration during retry
+- `orders-spec.md`: order state transitions on payment failure
 
 **Questions:**
-- Q3.1: Does the install flow handle OAuth2 consent?
-- Q3.2: Who fills in the config — the agent or the user?
+- Q3.1: The payment spec says "retry 3 times." The inventory spec
+  holds stock for 5 minutes. What if retries take longer than 5 minutes?
+- Q3.2: Does the order stay in "pending_payment" during retries, or
+  does it transition to "failed" and require a new order?
 ```
 
 **Rules for good steps:**
@@ -115,9 +116,9 @@ A table showing which spec docs were exercised at which steps.
 ```markdown
 | Spec Doc | Steps Hit | Coverage |
 |----------|-----------|----------|
-| `connectors.md` | 3,4,5 | Core coverage; OAuth UX gap |
-| `registry.md` | 3 | Search/install covered |
-| `memory-module.md` | — | Not exercised |
+| `payments-spec.md` | 3,4 | Retry covered; hold-vs-retry timing gap |
+| `inventory-spec.md` | 2,3 | Stock hold covered; expiry-during-retry unclear |
+| `shipping-spec.md` | — | Not exercised |
 ```
 
 Specs that no scenario touches are untested blind spots.
@@ -132,9 +133,9 @@ Classify each finding by severity:
 
 | Severity | Definition | Example |
 |----------|-----------|---------|
-| **BLOCKING** | Spec cannot answer; implementation impossible | No auth schema but multi-tenant mode requires it |
-| **DEGRADED** | Spec is silent but a workaround exists | No file-watch trigger; use cron polling instead |
-| **COSMETIC** | Missing convenience, not a correctness issue | No bulk enrollment CLI command |
+| **BLOCKING** | Spec cannot answer; implementation impossible | Payment retry duration can exceed inventory hold — no resolution defined |
+| **DEGRADED** | Spec is silent but a workaround exists | No spec for partial refunds on split shipments; can process manually |
+| **COSMETIC** | Missing convenience, not a correctness issue | No order timeline view for customer support |
 
 ## Running a Vibe Test
 
@@ -199,12 +200,12 @@ Choose scenarios that vary across dimensions:
 
 | Dimension | Variation A | Variation B | Variation C |
 |-----------|------------|------------|------------|
-| **User skill** | Non-technical | Developer | SRE/Ops |
-| **Deployment** | Local/single machine | Cloud SaaS | Distributed enterprise |
-| **Scale** | Single user | Multi-tenant (1000s) | Global multi-region |
-| **Access** | Web browser | CLI | API/programmatic |
-| **Governance** | None (personal) | Moderate (team) | Strict (SOC2/compliance) |
-| **Network** | Always online | Intermittent | Air-gapped |
+| **User type** | First-time buyer | Returning customer | Admin/merchant |
+| **Device** | Mobile browser | Desktop | API client |
+| **Scale** | Single user | Normal traffic | Black Friday spike |
+| **Payment** | Happy path | Failure + retry | Partial refund |
+| **Governance** | None (consumer) | Moderate (business) | Strict (compliance) |
+| **Network** | Fast WiFi | Slow 3G | Intermittent |
 
 Each test case should differ on at least 3 dimensions. 4 test cases covering 4 quadrants give good coverage.
 
@@ -212,11 +213,11 @@ Each test case should differ on at least 3 dimensions. 4 test cases covering 4 q
 
 Good gap detection questions are:
 
-- **Specific:** "Who initiates the OAuth2 browser redirect?" not "How does auth work?"
+- **Specific:** "What order state is set during payment retry?" not "How do orders work?"
 - **Traceable:** Answerable by citing a spec section (or flagging its absence)
 - **Boundary-probing:** Target edges between two specs' responsibilities
-- **Scale-sensitive:** "What happens with 10,000 concurrent X?"
-- **Failure-aware:** "What if Y fails/expires/crashes at this point?"
+- **Scale-sensitive:** "What happens with 10,000 concurrent checkouts?"
+- **Failure-aware:** "What if the payment fails after inventory is reserved?"
 
 ### Coverage Maximization
 
@@ -233,17 +234,17 @@ After writing all test cases, check the coverage union. Every spec doc should ap
 ### BLOCKING
 | ID | Gap | Affected Tests | Recommended Fix |
 |----|-----|---------------|-----------------|
-| G-B1 | No web UI spec | VT-1, VT-2 | New: web-ui-spec.md |
+| G-B1 | Payment retry window can exceed inventory hold | VT-1, VT-2 | Align timing in payments-spec.md and inventory-spec.md |
 
 ### DEGRADED
 | ID | Gap | Affected Tests | Workaround |
 |----|-----|---------------|-----------|
-| G-D1 | No FileWatch trigger | VT-3 | Use cron polling |
+| G-D1 | No spec for partial refunds on split shipments | VT-3 | Process refunds per-shipment manually |
 
 ### COSMETIC
 | ID | Gap | Affected Tests |
 |----|-----|---------------|
-| G-C1 | No bulk enrollment CLI | VT-4 |
+| G-C1 | No order timeline view for support agents | VT-4 |
 ```
 
 Gap IDs use prefix: `G-B` (blocking), `G-D` (degraded), `G-C` (cosmetic).
@@ -253,9 +254,9 @@ Gap IDs use prefix: `G-B` (blocking), `G-D` (degraded), `G-C` (cosmetic).
 | Mistake | Fix |
 |---------|-----|
 | Abstract personas ("a user") | Give them names, roles, and constraints |
-| Scenario only tests happy path | Add failure steps: "What if the token expires?" |
+| Scenario only tests happy path | Add failure steps: "What if the payment is declined?" |
 | Questions test opinions ("Is this good?") | Questions must be spec-answerable: "Which doc defines X?" |
-| All tests use same deployment mode | Vary environment across tests |
+| All tests use same user type | Vary across buyer, merchant, admin, support |
 | Ignoring coverage matrix | Every spec doc must appear in at least one test |
 | Writing tests after implementation | Vibe tests validate specs BEFORE implementation |
 | Too many steps per scenario | 5-8 steps. Focused scenarios find more gaps |
