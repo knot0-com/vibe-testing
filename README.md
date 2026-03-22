@@ -104,3 +104,7 @@ Each would have been a rewrite-level discovery weeks into implementation.
 ## License
 
 MIT
+
+---
+
+Built by [Knot0](https://knot0.com) — software that assembles itself.
